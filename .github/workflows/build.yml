@@ -69,6 +69,7 @@ jobs:
     needs: pack
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
@@ -84,3 +85,27 @@ jobs:
               -o artifacts/Releases-$ch --channel $ch \
               --tag $GITHUB_REF_NAME --releaseName "TachieKara $VERSION" --merge --publish
           done
+      # CHANGELOG.md の「## vX.Y.Z」から次の「## 」までをリリースノートにし、ダウンロードの案内を付ける
+      - name: Release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          awk -v tag="## $GITHUB_REF_NAME" '
+            $0 == tag { on = 1; next }
+            on && /^## / { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then echo "変更点は CHANGELOG.md を参照してください。" > notes.md; fi
+          cat >> notes.md <<'EOF'
+
+          ---
+          ### ダウンロード
+          | OS | ファイル |
+          |---|---|
+          | Windows | `TachieKara-win-Setup.exe`（インストール版）／ `TachieKara-win-Portable.zip`（展開して使う版） |
+          | macOS（Apple Silicon） | `TachieKara-osx-arm64-Portable.zip` |
+          | macOS（Intel） | `TachieKara-osx-x64-Portable.zip` |
+
+          インストール済みのアプリは、アプリの中から更新できます。初めて開くときの注意は [README](https://github.com/${{ github.repository }}#ダウンロードとインストール) を見てください。
+          EOF
+          gh release edit "$GITHUB_REF_NAME" -R "${{ github.repository }}" --notes-file notes.md

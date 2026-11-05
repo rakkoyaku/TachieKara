@@ -346,9 +346,22 @@ public sealed partial class MainViewModel : ViewModelBase
     public bool HasUpdateBanner => UpdateState != "none";
 
     /// <summary>起動時に裏で更新を確認する。失敗しても何も出さない。</summary>
+    /// <summary>起動時に新しいバージョンを確認するか（ソフトウェア情報で切り替える）。</summary>
+    public bool CheckUpdatesOnStartup
+    {
+        get => _settings.CheckUpdatesOnStartup;
+        set
+        {
+            if (_settings.CheckUpdatesOnStartup == value) return;
+            _settings.CheckUpdatesOnStartup = value;
+            SettingsStore.Save(_settings);
+            OnPropertyChanged();
+        }
+    }
+
     public async Task CheckUpdatesOnStartupAsync()
     {
-        if (!_updater.IsInstalled) return;
+        if (!_updater.IsInstalled || !_settings.CheckUpdatesOnStartup) return;
         try
         {
             if (_updater.PendingRestartVersion is { } pending)

@@ -1,6 +1,63 @@
 # TachieKara（立ち絵から）
 
-表情差分の立ち絵から、同じ位置の顔アイコン（またはバストアップ）を一括で切り出す Windows / macOS 用アプリです。
+表情差分の立ち絵から、**顔アイコン**・**バストアップ**・**ディスプレイ画像（立ち絵＋表情一覧）** をまとめて作る Windows / macOS 用の無料アプリです。
+
+- 基準にする立ち絵で切り抜く範囲を一度決めれば、すべての表情を同じ位置で一括で書き出せます。
+- 表情に名前（表情名）を付けると、そのままファイル名やディスプレイ画像の表記になります。
+- ディスプレイ画像は、17 種類のテンプレート・19 種類の背景・タイトル・クレジットを組み合わせて作れます。立ち絵の色に合わせた配色にもできます。
+- アプリの中から新しいバージョンを確認して、そのまま更新できます。
+
+> **作った画像の権利について**
+> 作った画像に含まれる絵の権利は、元の立ち絵の作者・権利者のものです。TachieKara を使っても元の権利は損なわれず、TachieKara の作者は作った画像に何の権利も主張しません。作った画像は、元の絵の権利者が認める範囲で使ってください。
+
+## ダウンロードとインストール
+
+[Releases](https://github.com/rakkoyaku/TachieKara/releases/latest) から OS に合ったものを取ってください。
+
+| OS | ファイル |
+|---|---|
+| Windows | `TachieKara-win-Setup.exe`（インストール版）／ `TachieKara-win-Portable.zip`（展開して使う版） |
+| macOS（Apple Silicon: M1 以降） | `TachieKara-osx-arm64-Portable.zip` |
+| macOS（Intel） | `TachieKara-osx-x64-Portable.zip` |
+
+### Windows
+
+`TachieKara-win-Setup.exe` を実行するとインストールされ、スタートメニューとデスクトップにショートカットができます。
+署名をしていないため「Windows によって PC が保護されました」と出た場合は、［詳細情報］→［実行］を押してください。
+
+### macOS
+
+> macOS 版は現在、実機での動作確認を進めているところです。うまく動かない場合は Issues で教えてください。
+
+Apple の公証を受けていないため、初回は「開発元を確認できない」と表示されます。
+
+1. zip を展開し、`TachieKara.app` を「アプリケーション」へ移動します。
+2. 一度ダブルクリックして警告を閉じます。
+3. 「システム設定」→「プライバシーとセキュリティ」の下部にある「このまま開く」を押します。
+
+ターミナルで `xattr -dr com.apple.quarantine /Applications/TachieKara.app` を実行しても開けるようになります。
+
+## アップデート
+
+インストールしたアプリは、起動時に新しいバージョンがないか確認します。顔アイコン／バストアップ／ディスプレイの切り替えの横にある **ⓘ（ソフトウェア情報）** からも確認できます。
+
+1. 新しいバージョンがあると、左上に「新しいバージョン x.y.z があります」と出るので［ダウンロード］を押します。
+   変わった部分だけをダウンロードするので、通常はすぐに終わります。
+2. ダウンロードが終わると、**次にアプリを起動したときに反映** されます。すぐに反映したいときは［今すぐ再起動］を押してください。
+
+インストーラーをもう一度実行する必要はありません。起動時の確認は、ソフトウェア情報の「起動時に新しいバージョンを確認する」で止められます。
+
+## 通信とデータについて
+
+- TachieKara がインターネットに接続するのは、**新しいバージョンの確認とダウンロード（GitHub）だけ**です。読み込んだ画像や作った画像を送ることはなく、利用状況の収集もしていません。
+- 設定（枠の位置・表情名・ディスプレイ画像の設定など）は、このパソコンの中だけに保存します。
+  - Windows: `%APPDATA%\TachieKara\settings.json`
+  - macOS: `~/.config/TachieKara/settings.json`
+
+## 困ったときは
+
+- アプリが落ちた場合は、上の設定フォルダにある `crash.log` に原因が記録されます。
+- 不具合の報告や要望は [Issues](https://github.com/rakkoyaku/TachieKara/issues) へどうぞ。`crash.log` の内容や、OS・アプリのバージョン（ⓘ で確認できます）を添えていただけると助かります。
 
 ## 使い方
 
@@ -63,42 +120,13 @@
 載せる表情と並び順は、左の一覧のチェックと順番で決まります（表情名は一覧でダブルクリックして付けます）。
 長さの設定は画像の幅に対する比率なので、幅を変えても見た目の釣り合いは変わりません。
 
-## ダウンロード
+## ライセンス
 
-[Releases](https://github.com/rakkoyaku/TachieKara/releases/latest) から OS に合ったものを取ってください。
+TachieKara は [MIT License](LICENSE) で公開しています。作った画像の権利についての説明も [LICENSE](LICENSE) にあります。
 
-| OS | ファイル |
-|---|---|
-| Windows | `TachieKara-win-Setup.exe`（インストール版）／ `TachieKara-win-Portable.zip`（展開して使う版） |
-| macOS（Apple Silicon: M1 以降） | `TachieKara-osx-arm64-Portable.zip` |
-| macOS（Intel） | `TachieKara-osx-x64-Portable.zip` |
+利用しているオープンソースソフトウェアの著作権表示とライセンスは、アプリの［ⓘ ソフトウェア情報］→［ライセンス］と、配布物に同梱の `THIRD-PARTY-NOTICES.txt` に記載しています。
 
-### Windows
-
-`TachieKara-win-Setup.exe` を実行するとインストールされ、スタートメニューとデスクトップにショートカットができます。
-署名をしていないため「Windows によって PC が保護されました」と出た場合は、［詳細情報］→［実行］を押してください。
-
-### macOS
-
-Apple の公証を受けていないため、初回は「開発元を確認できない」と表示されます。
-
-1. zip を展開し、`TachieKara.app` を「アプリケーション」へ移動します。
-2. 一度ダブルクリックして警告を閉じます。
-3. 「システム設定」→「プライバシーとセキュリティ」の下部にある「このまま開く」を押します。
-
-ターミナルで `xattr -dr com.apple.quarantine /Applications/TachieKara.app` を実行しても開けるようになります。
-
-## アップデート
-
-インストールしたアプリは、起動時に新しいバージョンがないか自動で確認します（キャンバス下の［?］→［更新を確認］でも確認できます）。
-
-1. 新しいバージョンがあると、左上に「新しいバージョン x.y.z があります」と出るので［ダウンロード］を押します。
-   変わった部分だけをダウンロードするので、通常はすぐに終わります。
-2. ダウンロードが終わると、**次にアプリを起動したときに反映** されます。すぐに反映したいときは［今すぐ再起動］を押してください。
-
-インストーラーをもう一度実行する必要はありません。
-
-## ビルド
+## 開発者向け
 
 .NET 10 SDK が必要です。
 
@@ -108,26 +136,21 @@ dotnet run --project src/TachieKara
 
 # Windows 用パッケージ（dist/Releases に Setup.exe・Portable.zip。要 vpk）
 dotnet tool install -g vpk --version 1.2.161
-pwsh packaging/windows/publish.ps1 -Version 0.1.0
+pwsh packaging/windows/publish.ps1 -Version 0.2.0
 
 # 自動更新なしの 1 ファイル exe（dist/TachieKara-<ver>-win-x64.exe）
-pwsh packaging/windows/publish.ps1 -Version 0.1.0 -SingleFile
+pwsh packaging/windows/publish.ps1 -Version 0.2.0 -SingleFile
 ```
 
 ### リリースの出し方
 
-変更をコミットして push したら、バージョンのタグを付けて push します（アプリのバージョンはタグから決まります）。
+1. [CHANGELOG.md](CHANGELOG.md) に新しいバージョンの見出し（例: `## v0.3.0`）と変更点を書いてコミット・push します。
+2. バージョンのタグを付けて push します（アプリのバージョンはタグから決まります）。
 
 ```sh
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
-GitHub Actions が Windows / macOS（Apple Silicon・Intel）版を [Velopack](https://velopack.io/) でパッケージにし、Releases に公開します。
+GitHub Actions が Windows / macOS（Apple Silicon・Intel）版を [Velopack](https://velopack.io/) でパッケージにし、CHANGELOG の該当部分をリリースノートにして Releases に公開します。
 公開されたリリースを、インストール済みのアプリが更新として見つけます。
-
-クラッシュした場合は設定フォルダ（Windows: `%APPDATA%\TachieKara`、macOS: `~/.config/TachieKara`）の `crash.log` を確認してください。
-
-## ライセンス
-
-利用しているオープンソースソフトウェアの著作権表示とライセンスは、アプリの［ソフトウェア情報］→［ライセンス］と、配布物に同梱の `THIRD-PARTY-NOTICES.txt` に記載しています。

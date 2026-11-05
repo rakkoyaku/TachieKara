@@ -18,7 +18,7 @@
             <Image Source="/Assets/TachieKara.ico" Width="72" Height="72" HorizontalAlignment="Center"
                    RenderOptions.BitmapInterpolationMode="HighQuality" />
             <TextBlock Text="TachieKara" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" />
-            <TextBlock Classes="caption" Text="表情差分の立ち絵から、顔アイコンとバストアップを一括で切り出す" HorizontalAlignment="Center"
+            <TextBlock Classes="caption" Text="表情差分の立ち絵から、顔アイコン・バストアップ・ディスプレイ画像をまとめて作る" HorizontalAlignment="Center"
                        TextAlignment="Center" TextWrapping="Wrap" />
             <TextBlock Classes="muted" Text="© 2026 rakkoyaku" HorizontalAlignment="Center" />
             <Border Background="{DynamicResource Surface3}" CornerRadius="10" Padding="10,3" HorizontalAlignment="Center">
@@ -33,6 +33,10 @@
                 CornerRadius="{StaticResource RadiusL}" Padding="16,14">
             <StackPanel Spacing="12">
                 <TextBlock Classes="section" Text="アップデート" Margin="0" />
+
+                <CheckBox IsChecked="{Binding CheckUpdatesOnStartup}" FontSize="12.5" IsVisible="{Binding CanCheckUpdates}">
+                    起動時に新しいバージョンを確認する
+                </CheckBox>
 
                 <!-- インストール版でないとき -->
                 <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding !CanCheckUpdates}"

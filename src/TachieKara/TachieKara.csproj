@@ -9,7 +9,7 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <AssemblyName>TachieKara</AssemblyName>
     <Product>TachieKara</Product>
-    <Version>0.1.1</Version>
+    <Version>0.2.0</Version>
     <ApplicationIcon>Assets\TachieKara.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -29,6 +29,9 @@
     <AvaloniaResource Include="Assets\**" />
     <!-- 配布物にもライセンス表記のファイルを置く -->
     <None Include="Assets\THIRD-PARTY-NOTICES.txt" Link="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
+    <!-- アプリ本体のライセンス（画面で表示し、配布物にも置く） -->
+    <AvaloniaResource Include="..\..\LICENSE" Link="Assets\LICENSE.txt" />
+    <None Include="..\..\LICENSE" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

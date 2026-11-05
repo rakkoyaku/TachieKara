@@ -38,6 +38,8 @@ public sealed class AppSettings
     public HashSet<string> DisplayExcluded { get; set; } = new();
     /// <summary>テンプレートを選んだときにキャラの色へ自動で合わせる。</summary>
     public bool DisplayAutoColor { get; set; } = true;
+    /// <summary>起動時に新しいバージョンを確認する。</summary>
+    public bool CheckUpdatesOnStartup { get; set; } = true;
 
     public static string NameKey(string path) => Path.GetFullPath(path).ToLowerInvariant();
 

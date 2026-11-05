@@ -16,14 +16,20 @@ public partial class AboutDialog : Window
 
     async void OnLicenses(object? sender, RoutedEventArgs e)
     {
-        string text;
-        try
+        // アプリ本体のライセンス（MIT と、作った画像の権利について）→ 利用しているソフトウェアの表記
+        async Task<string> Read(string name)
         {
-            using var stream = Avalonia.Platform.AssetLoader.Open(new Uri("avares://TachieKara/Assets/THIRD-PARTY-NOTICES.txt"));
-            using var reader = new StreamReader(stream);
-            text = await reader.ReadToEndAsync();
+            try
+            {
+                using var stream = Avalonia.Platform.AssetLoader.Open(new Uri($"avares://TachieKara/Assets/{name}"));
+                using var reader = new StreamReader(stream);
+                return await reader.ReadToEndAsync();
+            }
+            catch (Exception ex) { return $"{name} を読み込めませんでした: {ex.Message}"; }
         }
-        catch (Exception ex) { text = "ライセンス表記を読み込めませんでした: " + ex.Message; }
+        var text = "■ TachieKara のライセンス\n\n" + await Read("LICENSE.txt")
+                   + "\n\n========================================================================\n"
+                   + "■ 利用しているソフトウェア\n\n" + await Read("THIRD-PARTY-NOTICES.txt");
 
         var body = new SelectableTextBlock { Text = text, FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap, Margin = new Avalonia.Thickness(20, 16) };
         body.FontFamily = new Avalonia.Media.FontFamily(OperatingSystem.IsMacOS() ? "Menlo, Hiragino Sans" : "Consolas, Yu Gothic UI");
