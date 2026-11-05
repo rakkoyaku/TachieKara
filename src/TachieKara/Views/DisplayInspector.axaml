@@ -1,0 +1,403 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TachieKara.ViewModels"
+             xmlns:m="using:TachieKara.Models"
+             xmlns:c="using:TachieKara.Controls"
+             xmlns:v="using:TachieKara.Views"
+             x:Class="TachieKara.Views.DisplayInspector"
+             x:DataType="vm:MainViewModel">
+    <UserControl.Styles>
+        <Style Selector="StackPanel.rows">
+            <Setter Property="Spacing" Value="6" />
+        </Style>
+        <Style Selector="TextBlock.sub">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiary}" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+        <!-- フォント選び: 一覧の各行をそのフォントで表示する -->
+        <Style Selector="ComboBox.font">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="MaxDropDownHeight" Value="420" />
+            <Setter Property="ItemTemplate">
+                <DataTemplate x:DataType="x:String">
+                    <TextBlock Text="{Binding}" FontFamily="{Binding Converter={x:Static v:FontFamilyNameConverter.Instance}}"
+                               FontSize="14" TextTrimming="CharacterEllipsis" />
+                </DataTemplate>
+            </Setter>
+        </Style>
+        <!-- キャラの色の見本 -->
+        <Style Selector="Button.swatch">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="19" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.swatch:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface3}" />
+        </Style>
+        <Style Selector="Separator.section">
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="Background" Value="{DynamicResource Stroke}" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="2">
+
+        <!-- ===== テンプレート ===== -->
+        <Expander Classes="section" Header="テンプレート">
+            <StackPanel Classes="rows">
+                <ItemsControl ItemsSource="{Binding TemplateNames}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="6" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Button Classes="pick" Content="{Binding}" Tag="{Binding}" Click="OnApplyTemplate">
+                                <Classes.on>
+                                    <MultiBinding Converter="{x:Static v:AllEqualConverter.Instance}">
+                                        <Binding />
+                                        <Binding Path="$parent[ItemsControl].((vm:MainViewModel)DataContext).SelectedTemplate" />
+                                    </MultiBinding>
+                                </Classes.on>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,2,0,0"
+                           Text="押すと見た目がまとめて切り替わります（立ち絵の選択やタイトルの文字はそのまま）。" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,4,0,0">
+                    <TextBox Text="{Binding NewTemplateName}" PlaceholderText="今の見た目に名前を付けて保存" />
+                    <Button Grid.Column="1" Classes="secondary" Command="{Binding SaveTemplateCommand}">保存</Button>
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" IsVisible="{Binding CanDeleteTemplate}">
+                    <TextBlock Classes="caption" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                        <Run Text="選択中: " /><Run Text="{Binding SelectedTemplate}" />
+                    </TextBlock>
+                    <Button Grid.Column="1" Classes="ghost danger" Command="{Binding DeleteTemplateCommand}">削除</Button>
+                </Grid>
+            </StackPanel>
+        </Expander>
+        <Separator Classes="section" />
+
+        <!-- ===== キャラの色 ===== -->
+        <Expander Classes="section" Header="キャラの色">
+            <StackPanel Classes="rows">
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="立ち絵から取り出した色です。押すと、今の見た目の色をその色に合わせます（明るさの組み立てはそのまま）。" />
+                <ItemsControl ItemsSource="{Binding TradeColors}" Margin="0,2,0,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel ItemSpacing="8" LineSpacing="8" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MainViewModel+Swatch">
+                            <Button Classes="swatch" Tag="{Binding Hex}" Click="OnSwatch" ToolTip.Tip="{Binding Hex}">
+                                <Border Width="34" Height="34" CornerRadius="17" Background="{Binding Brush}"
+                                        BorderBrush="{DynamicResource StrokeStrong}" BorderThickness="1" />
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Classes="caption" Text="立ち絵を読み込むと色が出ます" IsVisible="{Binding !HasTradeColors}" />
+                <CheckBox Classes="row" IsChecked="{Binding AutoMatchColors}">テンプレートを選んだときも自動で合わせる</CheckBox>
+            </StackPanel>
+        </Expander>
+        <Separator Classes="section" />
+
+        <!-- ===== 画像サイズ ===== -->
+        <Expander Classes="section" Header="画像サイズ">
+            <StackPanel Classes="rows">
+                <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                    <TextBlock Classes="field-label" Text="幅" />
+                    <NumericUpDown Grid.Column="1" Classes="field" Minimum="200" Maximum="16000" Increment="100"
+                                   Value="{Binding Display.Width, Converter={x:Static v:IntDecimalConverter.Instance}}">
+                        <NumericUpDown.InnerRightContent><TextBlock Classes="inner-right" Text="px" /></NumericUpDown.InnerRightContent>
+                    </NumericUpDown>
+                </Grid>
+                <TextBlock Classes="field-label" Text="縦横比" />
+                <c:ChoiceField Options="1:1,4:3,3:2,16:9,3:4,9:16,auto=立ち絵に合わせる" Value="{Binding Display.Aspect}" />
+                <c:SliderField Label="余白" Minimum="0" Maximum="120" Value="{Binding Display.Margin}" />
+                <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                    <TextBlock Classes="field-label" Text="形式" />
+                    <c:ChoiceField Grid.Column="1" Columns="2" Options="png=PNG,jpg=JPG" Value="{Binding Display.Format}" />
+                </Grid>
+                <TextBlock Classes="muted num" Text="{Binding DisplaySizeText, StringFormat='書き出しサイズ  {0}'}" />
+            </StackPanel>
+        </Expander>
+        <Separator Classes="section" />
+
+        <!-- ===== 背景 ===== -->
+        <Expander Classes="section" Header="背景">
+            <StackPanel Classes="rows">
+                <c:ChoiceField Options="solid=単色,gradient=グラデーション,radial=放射,band=斜め帯,split=斜め分割,stripes=ストライプ,dots=ドット,grid=方眼,checker=チェック,sunburst=サンバースト,halftone=ハーフトーン,gingham=ギンガム,waves=ウェーブ,hex=ハニカム,stars=星,circles=同心円,chevron=シェブロン,speedlines=集中線,image=画像"
+                               Value="{Binding Display.BgKind}" />
+                <c:ColorField Label="地の色" Hex="{Binding Display.BgColor1}" Margin="0,4,0,0" />
+                <c:ColorField Label="模様の色" Hex="{Binding Display.BgColor2}" IsVisible="{Binding BgUsesColor2}" />
+                <c:SliderField Label="角度" Minimum="-90" Maximum="90" Suffix="°" Value="{Binding Display.BgAngle}" IsVisible="{Binding BgUsesAngle}" />
+                <c:SliderField Label="{Binding BgSizeLabel}" Minimum="5" Maximum="150" Value="{Binding Display.BgSize}" IsVisible="{Binding BgUsesSize}" />
+                <c:SliderField Label="{Binding BgOffsetLabel}" Minimum="-50" Maximum="50" Value="{Binding Display.BgOffset}" IsVisible="{Binding BgUsesOffset}" />
+                <c:SliderField Label="模様の濃さ" Minimum="0" Maximum="100" Suffix="%" Value="{Binding Display.PatternOpacity}" IsVisible="{Binding BgUsesPatternOpacity}" />
+                <StackPanel Classes="rows" IsVisible="{Binding BgUsesEdgeLines}">
+                    <CheckBox Classes="row" IsChecked="{Binding Display.BgEdgeLines}">ふちに線を引く</CheckBox>
+                    <c:ColorField Label="線の色" Hex="{Binding Display.BgColor3}" IsVisible="{Binding Display.BgEdgeLines}" />
+                </StackPanel>
+                <StackPanel Classes="rows" IsVisible="{Binding BgIsImage}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <TextBlock Classes="caption" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding BgImageName}" />
+                        <Button Grid.Column="1" Classes="secondary" Command="{Binding PickBackgroundImageCommand}">画像を選ぶ…</Button>
+                    </Grid>
+                    <c:SliderField Label="暗くする" Minimum="0" Maximum="90" Suffix="%" Value="{Binding Display.BgImageDim}" />
+                    <c:SliderField Label="ぼかし" Minimum="0" Maximum="40" Value="{Binding Display.BgImageBlur}" />
+                </StackPanel>
+
+                <TextBlock Classes="sub" Text="重ねる効果" />
+                <CheckBox Classes="row" IsChecked="{Binding Display.Grain}">ざらつき（紙のような質感）</CheckBox>
+                <c:SliderField Label="強さ" Minimum="0" Maximum="100" Suffix="%" Value="{Binding Display.GrainAmount}" IsVisible="{Binding Display.Grain}" />
+                <CheckBox Classes="row" IsChecked="{Binding Display.Vignette}">周りを暗くする</CheckBox>
+                <CheckBox Classes="row" IsChecked="{Binding Display.InnerFrame}">内側に枠線</CheckBox>
+                <StackPanel Classes="rows" IsVisible="{Binding Display.InnerFrame}">
+                    <c:ColorField Label="枠の色" Hex="{Binding Display.InnerFrameColor}" />
+                    <c:SliderField Label="太さ" Minimum="1" Maximum="20" Value="{Binding Display.InnerFrameWidth}" />
+                    <c:SliderField Label="内側へ" Minimum="0" Maximum="80" Value="{Binding Display.InnerFrameInset}" />
+                </StackPanel>
+            </StackPanel>
+        </Expander>
+        <Separator Classes="section" />
+
+        <!-- ===== 立ち絵 ===== -->
+        <Expander Classes="section" Header="立ち絵">
+            <StackPanel Classes="rows">
+                <CheckBox Classes="row" IsChecked="{Binding Display.ShowSprite}">立ち絵を載せる</CheckBox>
+                <StackPanel Classes="rows" IsVisible="{Binding Display.ShowSprite}">
+                    <CheckBox Classes="row" IsChecked="{Binding Display.SpriteTrim}">透明な余白を除いて配置する</CheckBox>
+                    <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                        <TextBlock Classes="field-label" Text="表情" />
+                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding DisplayChoices}" SelectedItem="{Binding DisplaySpriteItem}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="m:SourceImage"><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" /></DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+                    <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                        <TextBlock Classes="field-label" Text="置く側" />
+                        <c:ChoiceField Grid.Column="1" Columns="2" Options="left=左,right=右" Value="{Binding Display.SpriteSide}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                        <TextBlock Classes="field-label" Text="揃え" />
+                        <c:ChoiceField Grid.Column="1" Columns="2" Options="bottom=下,center=中央" Value="{Binding Display.SpriteAlign}" />
+                    </Grid>
+                    <c:SliderField Label="使う幅" Minimum="15" Maximum="80" Suffix="%" Value="{Binding Display.SpriteArea}" />
+                    <c:SliderField Label="大きさ" Minimum="40" Maximum="250" Suffix="%" Value="{Binding Display.SpriteScale}" />
+                    <c:SliderField Label="左右にずらす" Minimum="-60" Maximum="60" Value="{Binding Display.SpriteOffsetX}" />
+                    <c:SliderField Label="上下にずらす" Minimum="-60" Maximum="60" Value="{Binding Display.SpriteOffsetY}" />
+                    <Button Classes="ghost" HorizontalAlignment="Left" Command="{Binding ResetDisplayOffsetsCommand}" Padding="8,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <c:Icon Kind="undo" Width="13" Height="13" />
+                            <TextBlock Text="大きさと位置を戻す" FontSize="12" />
+                        </StackPanel>
+                    </Button>
+
+                    <TextBlock Classes="sub" Text="フチと影" />
+                    <CheckBox Classes="row" IsChecked="{Binding Display.SpriteOutline}">フチを付ける</CheckBox>
+                    <StackPanel Classes="rows" IsVisible="{Binding Display.SpriteOutline}">
+                        <c:ColorField Label="フチの色" Hex="{Binding Display.SpriteOutlineColor}" />
+                        <c:SliderField Label="太さ" Minimum="1" Maximum="30" Value="{Binding Display.SpriteOutlineWidth}" />
+                        <c:SliderField Label="なめらかさ" Minimum="0" Maximum="30" Value="{Binding Display.SpriteOutlineSmooth}" />
+                        <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                            <TextBlock Classes="field-label" Text="縁" />
+                            <c:ChoiceField Grid.Column="1" Columns="2" Options="aa=なめらか,crisp=くっきり" Value="{Binding Display.SpriteOutlineEdge}" />
+                        </Grid>
+                    </StackPanel>
+                    <CheckBox Classes="row" IsChecked="{Binding Display.SpriteShadow}">影を付ける</CheckBox>
+                    <StackPanel Classes="rows" IsVisible="{Binding Display.SpriteShadow}">
+                        <c:ColorField Label="影の色" Hex="{Binding Display.SpriteShadowColor}" />
+                        <c:SliderField Label="濃さ" Minimum="0" Maximum="100" Suffix="%" Value="{Binding Display.SpriteShadowOpacity}" />
+                        <c:SliderField Label="距離" Minimum="0" Maximum="40" Value="{Binding Display.SpriteShadowDistance}" />
+                        <c:SliderField Label="ぼかし" Minimum="0" Maximum="40" Value="{Binding Display.SpriteShadowBlur}" />
+                    </StackPanel>
+
+                    <TextBlock Classes="sub" Text="奥に大きく重ねる" />
+                    <CheckBox Classes="row" IsChecked="{Binding Display.Ghost}">奥に大きな立ち絵を重ねる</CheckBox>
+                    <StackPanel Classes="rows" IsVisible="{Binding Display.Ghost}">
+                        <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                            <TextBlock Classes="field-label" Text="表情" />
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding DisplayChoices}" SelectedItem="{Binding DisplayGhostItem}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="m:SourceImage"><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" /></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </Grid>
+                        <c:SliderField Label="濃さ" Minimum="5" Maximum="100" Suffix="%" Value="{Binding Display.GhostOpacity}" />
+                        <c:SliderField Label="大きさ" Minimum="80" Maximum="350" Suffix="%" Value="{Binding Display.GhostScale}" />
+                        <c:SliderField Label="左右にずらす" Minimum="-60" Maximum="60" Value="{Binding Display.GhostOffsetX}" />
+                        <c:SliderField Label="上下にずらす" Minimum="-60" Maximum="60" Value="{Binding Display.GhostOffsetY}" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </Expander>
+        <Separator Classes="section" />
+
+        <!-- ===== 表情グリッド ===== -->
+        <Expander Classes="section" Header="表情の並び">
+            <StackPanel Classes="rows">
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="顔アイコンの枠で切り抜いて並べます。載せる表情は左の一覧のチェックで選べます（並び順も一覧の順）。" />
+                <TextBlock Classes="field-label" Text="マスの縦横比" Margin="0,4,0,0" />
+                <c:ChoiceField Options="1:1,4:3,3:2,16:9,3:4" Value="{Binding Display.CellAspect}" />
+                <c:SliderField Label="引き・寄り" Minimum="50" Maximum="250" Suffix="%" Value="{Binding Display.CellZoom}" />
+                <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                    <TextBlock Classes="field-label" Text="列の数" />
+                    <NumericUpDown Grid.Column="1" Classes="field" Minimum="0" Maximum="12"
+                                   Value="{Binding Display.Columns, Converter={x:Static v:IntDecimalConverter.Instance}}">
+                        <NumericUpDown.InnerRightContent><TextBlock Classes="inner-right" Text="0 = 自動" /></NumericUpDown.InnerRightContent>
+                    </NumericUpDown>
+                </Grid>
+                <c:SliderField Label="間隔" Minimum="0" Maximum="80" Value="{Binding Display.CellGap}" />
+                <c:SliderField Label="大きさの上限" Minimum="5" Maximum="60" Suffix="%" Value="{Binding Display.CellMax}" />
+                <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                    <TextBlock Classes="field-label" Text="上下の揃え" />
+                    <c:ChoiceField Grid.Column="1" Columns="3" Options="top=上,center=中央,bottom=下" Value="{Binding Display.GridAlign}" />
+                </Grid>
+
+                <TextBlock Classes="sub" Text="マスの見た目" />
+                <c:ColorField Label="マスの背景" Hex="{Binding Display.CellBg}" />
+                <c:SliderField Label="枠の太さ" Minimum="0" Maximum="20" Value="{Binding Display.FrameWidth}" />
+                <c:ColorField Label="枠の色" Hex="{Binding Display.FrameColor}" />
+                <c:SliderField Label="角の丸み" Minimum="0" Maximum="80" Value="{Binding Display.CornerRadius}" />
+                <CheckBox Classes="row" IsChecked="{Binding Display.CellShadow}">マスに影を付ける</CheckBox>
+                <CheckBox Classes="row" IsChecked="{Binding Display.GridCard}">並びの下にカードを敷く</CheckBox>
+                <StackPanel Classes="rows" IsVisible="{Binding Display.GridCard}">
+                    <c:ColorField Label="カードの色" Hex="{Binding Display.GridCardColor}" />
+                    <c:SliderField Label="濃さ" Minimum="5" Maximum="100" Suffix="%" Value="{Binding Display.GridCardOpacity}" />
+                </StackPanel>
+            </StackPanel>
+        </Expander>
+        <Separator Classes="section" />
+
+        <!-- ===== 表情名 ===== -->
+        <Expander Classes="section" Header="表情名">
+            <StackPanel Classes="rows">
+                <c:ChoiceField Columns="3" Options="none=出さない,below=マスの下,inside=マスの中" Value="{Binding Display.LabelMode}" />
+                <StackPanel Classes="rows" IsVisible="{Binding LabelVisible}">
+                    <TextBlock Classes="muted" TextWrapping="Wrap" Text="表情名は一覧でダブルクリック（または F2）で付けられます。" />
+                    <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                        <TextBlock Classes="field-label" Text="フォント" />
+                        <ComboBox Grid.Column="1" Classes="font" ItemsSource="{Binding FontChoices}" SelectedItem="{Binding LabelFontChoice}" />
+                    </Grid>
+                    <CheckBox Classes="row" IsChecked="{Binding Display.LabelBold}">太字</CheckBox>
+                    <c:SliderField Label="大きさ" Minimum="4" Maximum="30" Value="{Binding Display.LabelSize}" />
+                    <c:ColorField Label="文字の色" Hex="{Binding Display.LabelColor}" />
+                    <CheckBox Classes="row" IsChecked="{Binding Display.LabelStroke}">文字にフチを付ける</CheckBox>
+                    <StackPanel Classes="rows" IsVisible="{Binding Display.LabelStroke}">
+                        <c:ColorField Label="フチの色" Hex="{Binding Display.LabelStrokeColor}" />
+                        <c:SliderField Label="フチの太さ" Minimum="2" Maximum="40" Value="{Binding Display.LabelStrokeWidth}" />
+                    </StackPanel>
+                    <c:ColorField Label="帯の色" Hex="{Binding Display.LabelBandColor}" IsVisible="{Binding LabelIsInside}" />
+                    <CheckBox Classes="row" IsChecked="{Binding Display.LabelLetters}">A・B・C の記号を付ける</CheckBox>
+                </StackPanel>
+            </StackPanel>
+        </Expander>
+        <Separator Classes="section" />
+
+        <!-- ===== タイトル ===== -->
+        <Expander Classes="section" Header="タイトル">
+            <StackPanel Classes="rows">
+                <CheckBox Classes="row" IsChecked="{Binding Display.ShowTitle}">タイトルを入れる</CheckBox>
+                <StackPanel Classes="rows" IsVisible="{Binding Display.ShowTitle}">
+                    <TextBox Text="{Binding Display.TitleText}" PlaceholderText="キャラクター名など" />
+                    <TextBox Text="{Binding Display.Subtitle}" PlaceholderText="添える文字（例: Expression Sheet・表情差分）" />
+                    <TextBlock Classes="field-label" Text="スタイル" Margin="0,4,0,0" />
+                    <c:ChoiceField Options="bar=下線,plate=プレート,plain=文字だけ,vertical=縦書き,watermark=透かし" Value="{Binding Display.TitleStyle}" />
+                    <StackPanel Classes="rows" IsVisible="{Binding TitleIsNotWatermark}">
+                        <TextBlock Classes="field-label" Text="置き場所" Margin="0,4,0,0" />
+                        <c:ChoiceField Options="grid=表情の上,grid-below=表情の下,top-left=左上,top-right=右上,bottom-left=左下,bottom-right=右下" Value="{Binding Display.TitleAnchor}" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="84,*" ColumnSpacing="8" IsVisible="{Binding TitleUsesAlign}">
+                        <TextBlock Classes="field-label" Text="揃え" />
+                        <c:ChoiceField Grid.Column="1" Columns="3" Options="left=左,center=中央,right=右" Value="{Binding Display.TitleAlign}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                        <TextBlock Classes="field-label" Text="フォント" />
+                        <ComboBox Grid.Column="1" Classes="font" ItemsSource="{Binding FontChoices}" SelectedItem="{Binding TitleFontChoice}" />
+                    </Grid>
+                    <CheckBox Classes="row" IsChecked="{Binding Display.TitleBold}">太字</CheckBox>
+                    <StackPanel Classes="rows" IsVisible="{Binding TitleIsNotWatermark}">
+                        <c:SliderField Label="大きさ" Minimum="10" Maximum="160" Value="{Binding Display.TitleSize}" />
+                        <c:ColorField Label="文字の色" Hex="{Binding Display.TitleColor}" />
+                        <c:ColorField Label="アクセント" Hex="{Binding Display.TitleAccentColor}" IsVisible="{Binding TitleUsesAccent}" />
+                    </StackPanel>
+
+                    <!-- 透かしの設定 -->
+                    <StackPanel Classes="rows" IsVisible="{Binding TitleIsWatermark}">
+                        <TextBlock Classes="sub" Text="透かし" />
+                        <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                            <TextBlock Classes="field-label" Text="描き方" />
+                            <c:ChoiceField Grid.Column="1" Columns="3" Options="fill=塗り,outline=輪郭,both=両方" Value="{Binding Display.WatermarkStyle}" />
+                        </Grid>
+                        <TextBlock Classes="field-label" Text="置き場所" />
+                        <c:ChoiceField Options="sprite=立ち絵の後ろ,top=上,center=中央,bottom=下,top-left=左上,top-right=右上,bottom-left=左下,bottom-right=右下" Value="{Binding Display.WatermarkPosition}" />
+                        <c:SliderField Label="大きさ" Minimum="5" Maximum="80" Suffix="%" Value="{Binding Display.WatermarkSize}" />
+                        <c:SliderField Label="濃さ" Minimum="5" Maximum="100" Suffix="%" Value="{Binding Display.WatermarkOpacity}" />
+                        <c:ColorField Label="色" Hex="{Binding Display.WatermarkColor}" />
+                        <c:ColorField Label="輪郭の色" Hex="{Binding Display.WatermarkOutlineColor}" />
+                        <c:SliderField Label="輪郭の太さ" Minimum="0" Maximum="12" Value="{Binding Display.WatermarkOutlineWidth}" />
+                        <CheckBox Classes="row" IsChecked="{Binding Display.WatermarkFollowBg}">背景の斜めの角度に合わせる</CheckBox>
+                        <c:SliderField Label="角度" Minimum="-90" Maximum="90" Suffix="°" Value="{Binding Display.WatermarkAngle}"
+                                       IsVisible="{Binding !Display.WatermarkFollowBg}" />
+                        <c:SliderField Label="左右にずらす" Minimum="-60" Maximum="60" Value="{Binding Display.WatermarkOffsetX}" />
+                        <c:SliderField Label="上下にずらす" Minimum="-60" Maximum="60" Value="{Binding Display.WatermarkOffsetY}" />
+                        <CheckBox Classes="row" IsChecked="{Binding Display.WatermarkFront}">立ち絵や表情より手前に出す</CheckBox>
+                        <TextBlock Classes="muted" TextWrapping="Wrap" Text="色を空欄にすると、背景に紛れない色を自動で選びます（背景が明るければ濃い色、暗ければ明るい色）。輪郭の色を空欄にすると塗りと同じ色になります。添える文字は小さく下に入ります。" />
+                    </StackPanel>
+                    <CheckBox Classes="row" IsChecked="{Binding Display.TitleStroke}" IsVisible="{Binding TitleUsesStroke}">文字にフチを付ける</CheckBox>
+                    <c:ColorField Label="フチの色" Hex="{Binding Display.TitleStrokeColor}">
+                        <c:ColorField.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="Display.TitleStroke" />
+                                <Binding Path="TitleUsesStroke" />
+                            </MultiBinding>
+                        </c:ColorField.IsVisible>
+                    </c:ColorField>
+                </StackPanel>
+            </StackPanel>
+        </Expander>
+
+        <Separator Classes="section" />
+
+        <!-- ===== クレジット ===== -->
+        <Expander Classes="section" Header="クレジット">
+            <StackPanel Classes="rows">
+                <CheckBox Classes="row" IsChecked="{Binding Display.ShowCredit}">クレジットを入れる</CheckBox>
+                <TextBlock Classes="muted" TextWrapping="Wrap" Text="描いた人の名前などを、四隅のどこかに小さく入れます。改行で複数行にできます。" />
+                <TextBox Text="{Binding Display.CreditText}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72"
+                         PlaceholderText="例）イラスト：ほげほげ&#x0a;　　衣装デザイン：ふがふが" />
+                <WrapPanel ItemSpacing="6" LineSpacing="6">
+                    <Button Classes="pick" Command="{Binding InsertCreditCommand}" CommandParameter="イラスト：">＋ イラスト</Button>
+                    <Button Classes="pick" Command="{Binding InsertCreditCommand}" CommandParameter="キャラクターデザイン：">＋ キャラデザ</Button>
+                    <Button Classes="pick" Command="{Binding InsertCreditCommand}" CommandParameter="衣装デザイン：">＋ 衣装デザイン</Button>
+                    <Button Classes="pick" Command="{Binding InsertCreditCommand}" CommandParameter="Illust: ">＋ Illust</Button>
+                    <Button Classes="pick" Command="{Binding InsertCreditCommand}" CommandParameter="© ">＋ ©</Button>
+                </WrapPanel>
+                <StackPanel Classes="rows" IsVisible="{Binding Display.ShowCredit}">
+                    <TextBlock Classes="field-label" Text="置き場所" Margin="0,4,0,0" />
+                    <c:ChoiceField Columns="2" Options="top-left=左上,top-right=右上,bottom-left=左下,bottom-right=右下" Value="{Binding Display.CreditPosition}" />
+                    <Grid ColumnDefinitions="84,*" ColumnSpacing="8">
+                        <TextBlock Classes="field-label" Text="フォント" />
+                        <ComboBox Grid.Column="1" Classes="font" ItemsSource="{Binding FontChoices}" SelectedItem="{Binding CreditFontChoice}" />
+                    </Grid>
+                    <CheckBox Classes="row" IsChecked="{Binding Display.CreditBold}">太字</CheckBox>
+                    <c:SliderField Label="大きさ" Minimum="6" Maximum="40" Value="{Binding Display.CreditSize}" />
+                    <c:ColorField Label="色" Hex="{Binding Display.CreditColor}" />
+                    <c:SliderField Label="濃さ" Minimum="10" Maximum="100" Suffix="%" Value="{Binding Display.CreditOpacity}" />
+                    <CheckBox Classes="row" IsChecked="{Binding Display.CreditBackdrop}">下地を敷いて読みやすくする</CheckBox>
+                    <TextBlock Classes="muted" TextWrapping="Wrap" Text="色を空欄にすると、背景に合わせて濃い灰色か明るい灰色になります。テンプレートを切り替えても、ここの内容はそのまま残ります。" />
+                </StackPanel>
+            </StackPanel>
+        </Expander>
+
+        <!-- ===== フォントの一覧 ===== -->
+        <CheckBox Classes="row" IsChecked="{Binding OnlyJapaneseFonts}" Margin="0,10,0,0">フォントの一覧は日本語フォントだけにする</CheckBox>
+    </StackPanel>
+</UserControl>

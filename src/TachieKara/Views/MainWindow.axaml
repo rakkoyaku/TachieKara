@@ -1,0 +1,682 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TachieKara.ViewModels"
+        xmlns:m="using:TachieKara.Models"
+        xmlns:c="using:TachieKara.Controls"
+        xmlns:v="using:TachieKara.Views"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
+        x:Class="TachieKara.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/TachieKara.ico"
+        Title="TachieKara"
+        Width="1360" Height="880" MinWidth="1040" MinHeight="640"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Surface0}"
+        Foreground="{DynamicResource TextPrimary}"
+        FontSize="13"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="40"
+        DragDrop.AllowDrop="True">
+
+    <Window.Styles>
+        <!-- 一覧のチェック（ディスプレイ画像に載せるか）は、ディスプレイのときだけ出す -->
+        <Style Selector="ListBox.assets CheckBox.include">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="ListBox.assets.display CheckBox.include">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="40,*">
+
+        <!-- ===================== タイトルバー ===================== -->
+        <Border Grid.Row="0" Background="{DynamicResource Surface0}" chrome:WindowDecorationProperties.ElementRole="TitleBar">
+            <StackPanel x:Name="TitleContent" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center"
+                        Margin="14,0,0,0" IsHitTestVisible="False">
+                <Image Source="/Assets/TachieKara.ico" Width="18" Height="18" />
+                <TextBlock Text="TachieKara" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="300,*,340">
+
+            <!-- ===================== 素材（左） ===================== -->
+            <Border Grid.Column="0" Background="{DynamicResource Surface1}" BorderBrush="{DynamicResource Stroke}"
+                    BorderThickness="0,1,1,0">
+                <DockPanel>
+                    <!-- 見出し -->
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="16,12,10,8">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock Classes="title" Text="素材" />
+                            <Border Background="{DynamicResource Surface3}" CornerRadius="9" Padding="7,1" VerticalAlignment="Center"
+                                    IsVisible="{Binding HasImages}">
+                                <TextBlock Text="{Binding AssetCountText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" />
+                            </Border>
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="ghost icon" ToolTip.Tip="並べ替え" IsEnabled="{Binding CanEdit}">
+                            <c:Icon Kind="sort" />
+                            <Button.Flyout>
+                                <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                    <MenuItem Header="名前順" Tag="name" Click="OnSortMenu" />
+                                    <MenuItem Header="フォルダ順" Tag="folder" Click="OnSortMenu" />
+                                    <MenuItem Header="サイズ順" Tag="size" Click="OnSortMenu" />
+                                    <MenuItem Header="容量順" Tag="filesize" Click="OnSortMenu" />
+                                    <MenuItem Header="状態順（ベース・サイズ違い）" Tag="status" Click="OnSortMenu" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                        <Button Grid.Column="2" Classes="ghost icon" ToolTip.Tip="素材を追加" IsEnabled="{Binding CanEdit}">
+                            <c:Icon Kind="plus" />
+                            <Button.Flyout>
+                                <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                    <MenuItem Header="画像を追加…" Click="OnAddFiles">
+                                        <MenuItem.Icon><c:Icon Kind="image" /></MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="フォルダを追加…" Click="OnAddFolder">
+                                        <MenuItem.Icon><c:Icon Kind="folder-plus" /></MenuItem.Icon>
+                                    </MenuItem>
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                    </Grid>
+
+                    <!-- 更新のお知らせ -->
+                    <Border DockPanel.Dock="Top" Margin="12,0,12,8" Padding="12,10" CornerRadius="{StaticResource RadiusL}"
+                            Background="{DynamicResource AccentSoft}" IsVisible="{Binding HasUpdateBanner}">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <c:Icon Kind="download" Foreground="{DynamicResource AccentText}" VerticalAlignment="Top" Margin="0,1,0,0" />
+                            <StackPanel Grid.Column="1" Spacing="6">
+                                <!-- 新しいバージョンあり -->
+                                <StackPanel Spacing="6" IsVisible="{Binding IsUpdateAvailable}">
+                                    <TextBlock FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap">
+                                        <Run Text="新しいバージョン " /><Run Text="{Binding UpdateVersion}" /><Run Text=" があります" />
+                                    </TextBlock>
+                                    <Button Classes="primary" Padding="10,4" FontSize="12" HorizontalAlignment="Left"
+                                            Command="{Binding DownloadUpdateCommand}">ダウンロード</Button>
+                                </StackPanel>
+                                <!-- ダウンロード中 -->
+                                <StackPanel Spacing="6" IsVisible="{Binding IsUpdateDownloading}">
+                                    <TextBlock FontSize="12" FontWeight="SemiBold">
+                                        <Run Text="ダウンロード中… " /><Run Text="{Binding UpdateProgress}" /><Run Text="%" />
+                                    </TextBlock>
+                                    <ProgressBar Value="{Binding UpdateProgress}" Maximum="100" />
+                                </StackPanel>
+                                <!-- 準備完了 -->
+                                <StackPanel Spacing="6" IsVisible="{Binding IsUpdateReady}">
+                                    <TextBlock FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap">
+                                        <Run Text="バージョン " /><Run Text="{Binding UpdateVersion}" /><Run Text=" の準備ができました" />
+                                    </TextBlock>
+                                    <TextBlock Classes="caption" FontSize="11.5" TextWrapping="Wrap" Text="次にアプリを起動したときに反映されます。" />
+                                    <Button Classes="primary" Padding="10,4" FontSize="12" HorizontalAlignment="Left"
+                                            Command="{Binding RestartToUpdateCommand}" IsEnabled="{Binding CanEdit}">今すぐ再起動</Button>
+                                </StackPanel>
+                                <!-- 失敗 -->
+                                <StackPanel Spacing="6" IsVisible="{Binding IsUpdateError}">
+                                    <TextBlock FontSize="12" FontWeight="SemiBold" Text="更新をダウンロードできませんでした" />
+                                    <TextBlock Classes="caption" FontSize="11.5" TextWrapping="Wrap" Text="{Binding UpdateMessage}" />
+                                    <Button Classes="secondary" Padding="10,4" FontSize="12" HorizontalAlignment="Left"
+                                            Command="{Binding DownloadUpdateCommand}">もう一度</Button>
+                                </StackPanel>
+                            </StackPanel>
+                            <Button Grid.Column="2" Classes="ghost icon" Width="22" Height="22" VerticalAlignment="Top"
+                                    Command="{Binding DismissUpdateCommand}" ToolTip.Tip="閉じる" IsVisible="{Binding !IsUpdateDownloading}">
+                                <c:Icon Kind="x" Width="12" Height="12" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- サイズ違いのお知らせ -->
+                    <Border DockPanel.Dock="Top" Margin="12,0,12,8" Padding="10,8" CornerRadius="{StaticResource RadiusL}"
+                            Background="{DynamicResource WarningSoft}" IsVisible="{Binding HasWarnings}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <c:Icon Kind="alert" Foreground="{DynamicResource Warning}" VerticalAlignment="Top" Margin="0,1,0,0" />
+                            <TextBlock Grid.Column="1" TextWrapping="Wrap" FontSize="11.5" Foreground="{DynamicResource TextPrimary}">
+                                <Run Text="サイズ違いが " /><Run Text="{Binding WarnCount}" FontWeight="SemiBold" /><Run Text=" 件あります。&#x0a;書き出すときに含めるか選べます。" />
+                            </TextBlock>
+                        </Grid>
+                    </Border>
+
+                    <!-- 操作 -->
+                    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Stroke}" BorderThickness="0,1,0,0" Padding="10,8">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" IsEnabled="{Binding CanEdit}">
+                            <Button Classes="ghost" Click="OnSetBase" ToolTip.Tip="選択中の画像をベースにする">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <c:Icon Kind="star" Width="14" Height="14" />
+                                    <TextBlock Text="ベースにする" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="1" Classes="ghost" Click="OnRename"
+                                    ToolTip.Tip="選択中の画像に名前（表情名）を付ける（F2・ダブルクリック）。書き出すファイル名になります。&#x0a;Tab で次の画像へ、空欄で元の名前に戻ります。">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <c:Icon Kind="pencil" Width="14" Height="14" />
+                                    <TextBlock Text="名前" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="3" Classes="ghost icon danger" Click="OnRemove" ToolTip.Tip="選択中の画像を一覧から外す（Delete）">
+                                <c:Icon Kind="trash" />
+                            </Button>
+                            <Button Grid.Column="4" Classes="ghost icon danger" Command="{Binding ClearAllCommand}" ToolTip.Tip="すべて一覧から外す">
+                                <c:Icon Kind="x" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- 一覧 -->
+                    <Panel>
+                        <ListBox x:Name="FileList" Classes="assets" Classes.display="{Binding IsDisplay}" ItemsSource="{Binding Images}" SelectionMode="Multiple"
+                                 SelectedItem="{Binding SelectedImage}"
+                                 DoubleTapped="OnListDoubleTapped" KeyDown="OnListKeyDown">
+                            <ListBox.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="ベースにする" Click="OnSetBase">
+                                        <MenuItem.Icon><c:Icon Kind="star" /></MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="名前を付ける" InputGesture="F2" Click="OnRename">
+                                        <MenuItem.Icon><c:Icon Kind="pencil" /></MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="フォルダを開く" Click="OnOpenItemFolder">
+                                        <MenuItem.Icon><c:Icon Kind="folder" /></MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator />
+                                    <MenuItem Header="一覧から外す" Click="OnRemove">
+                                        <MenuItem.Icon><c:Icon Kind="trash" /></MenuItem.Icon>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </ListBox.ContextMenu>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="m:SourceImage">
+                                    <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10" Background="Transparent">
+                                        <ToolTip.Tip>
+                                            <StackPanel Spacing="2" MaxWidth="320">
+                                                <TextBlock Text="{Binding Path}" TextWrapping="Wrap" FontSize="11.5" />
+                                                <TextBlock Text="{Binding StatusTip}" TextWrapping="Wrap" FontSize="11.5" Opacity="0.75" />
+                                            </StackPanel>
+                                        </ToolTip.Tip>
+                                        <!-- ディスプレイ画像に載せるか ＋ 元画像 -->
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <CheckBox Classes="include" IsChecked="{Binding InDisplay}" MinWidth="0" Padding="0"
+                                                      ToolTip.Tip="ディスプレイ画像に載せる" VerticalAlignment="Center" />
+                                            <Border Width="34" Height="46" CornerRadius="{StaticResource RadiusM}" ClipToBounds="True"
+                                                    Background="{x:Static v:MainWindow.CheckerBrush}">
+                                                <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                                            </Border>
+                                        </StackPanel>
+                                        <!-- 切り抜き結果 -->
+                                        <Border Grid.Column="1" Width="46" Height="46" CornerRadius="{StaticResource RadiusM}" ClipToBounds="True"
+                                                Background="{x:Static v:MainWindow.CheckerBrush}">
+                                            <Image Source="{Binding CropThumbnail}" Stretch="Uniform" />
+                                        </Border>
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
+                                            <Panel>
+                                                <TextBlock Text="{Binding DisplayName}" FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis"
+                                                           IsVisible="{Binding !IsRenaming}" />
+                                                <TextBox Classes="rename" Text="{Binding EditName}" PlaceholderText="{Binding Stem}"
+                                                         IsVisible="{Binding IsRenaming}"
+                                                         KeyDown="OnRenameKeyDown" LostFocus="OnRenameLostFocus" />
+                                            </Panel>
+                                            <TextBlock Text="{Binding MetaText}" Classes="muted num" TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Border Classes="badge" IsVisible="{Binding HasBadge}"
+                                                        Classes.base="{Binding IsBase}" Classes.warn="{Binding IsWarning}" Classes.error="{Binding IsError}">
+                                                    <TextBlock Text="{Binding BadgeText}" />
+                                                </Border>
+                                                <TextBlock Text="{Binding FolderName}" Classes="muted" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6" IsVisible="{Binding !HasImages}" Margin="24">
+                            <c:Icon Kind="images" Width="28" Height="28" Foreground="{DynamicResource TextTertiary}" HorizontalAlignment="Center" />
+                            <TextBlock Classes="muted" Text="まだ素材がありません" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Panel>
+                </DockPanel>
+            </Border>
+
+            <!-- ===================== キャンバス（中央） ===================== -->
+            <Panel Grid.Column="1">
+                <c:CropCanvas x:Name="Canvas" IsVisible="{Binding IsCropMode}"
+                              Background="{DynamicResource CanvasBackdrop}"
+                              AccentBrush="{DynamicResource Accent}"
+                              Source="{Binding CanvasImage}"
+                              CropX="{Binding CropX}" CropY="{Binding CropY}"
+                              CropWidth="{Binding CropW}" CropHeight="{Binding CropH}" LockSquare="{Binding IsFace}"
+                              ShowGuides="{Binding ShowGuides}" GuideCenter="{Binding GuideCenter}"
+                              GuideThirds="{Binding GuideThirds}" GuideCircle="{Binding ShowCircleGuide}"
+                              IsEnabled="{Binding CanEdit}" />
+                <!-- ディスプレイ画像のプレビュー（見るだけ） -->
+                <c:CropCanvas x:Name="DisplayCanvas" ShowCrop="False" IsVisible="{Binding IsDisplay}"
+                              Background="{DynamicResource CanvasBackdrop}"
+                              Source="{Binding DisplayPreview}" />
+
+                <!-- 空の状態 -->
+                <Panel IsVisible="{Binding !HasImages}" Background="{DynamicResource CanvasBackdrop}">
+                    <Panel Width="460" Height="300" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Rectangle RadiusX="18" RadiusY="18" Stroke="{DynamicResource StrokeStrong}" StrokeThickness="1.5"
+                                   StrokeDashArray="5,4" Fill="{DynamicResource Surface1}" />
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="14">
+                            <Border Width="56" Height="56" CornerRadius="28" Background="{DynamicResource AccentSoft}" HorizontalAlignment="Center">
+                                <c:Icon Kind="upload" Width="26" Height="26" Foreground="{DynamicResource AccentText}" />
+                            </Border>
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="立ち絵をここにドロップ" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                <TextBlock Classes="caption" HorizontalAlignment="Center" TextAlignment="Center" LineHeight="18"
+                                           Text="表情差分の画像を、ファイルでもフォルダごとでも。&#x0a;PNG · JPG · WebP · BMP" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,4,0,0">
+                                <Button Classes="secondary" Click="OnAddFiles">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <c:Icon Kind="image" />
+                                        <TextBlock Text="画像を選ぶ" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Classes="secondary" Click="OnAddFolder">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <c:Icon Kind="folder" />
+                                        <TextBlock Text="フォルダを選ぶ" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+                    </Panel>
+                </Panel>
+
+                <!-- 表示中の画像（ベース以外を表示しているとき） -->
+                <Border Classes="floating" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16" Padding="12,6,6,6"
+                        >
+                    <Border.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsViewingOther" />
+                            <Binding Path="IsCropMode" />
+                        </MultiBinding>
+                    </Border.IsVisible>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock VerticalAlignment="Center" FontSize="12">
+                            <Run Text="表示中" Foreground="{DynamicResource TextSecondary}" /><Run Text="  " /><Run Text="{Binding ViewingLabel}" FontWeight="SemiBold" />
+                        </TextBlock>
+                        <Border Classes="badge warn" IsVisible="{Binding ViewingMismatch}">
+                            <TextBlock Text="サイズ違い" />
+                        </Border>
+                        <Button Classes="ghost" Command="{Binding ShowBaseCommand}" Padding="8,4" FontSize="12">ベースを表示</Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- 読み込み中 -->
+                <Border Classes="floating" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16" Padding="12,8">
+                    <Border.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                            <Binding Path="IsLoadingBase" />
+                            <Binding Path="IsLoadingDisplay" />
+                        </MultiBinding>
+                    </Border.IsVisible>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <ProgressBar IsIndeterminate="True" Width="60" VerticalAlignment="Center" />
+                        <TextBlock Text="読み込み中" Classes="caption" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 通知 -->
+                <Border Classes="floating" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16" Padding="14,12" Width="340"
+                        IsVisible="{Binding ToastVisible}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <Panel VerticalAlignment="Top" Margin="0,1,0,0">
+                            <c:Icon Kind="check" Width="18" Height="18" Foreground="{DynamicResource Success}" IsVisible="{Binding !ToastIsError}" />
+                            <c:Icon Kind="alert-circle" Width="18" Height="18" Foreground="{DynamicResource Danger}" IsVisible="{Binding ToastIsError}" />
+                        </Panel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="{Binding ToastTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding ToastMessage}" Classes="caption" TextWrapping="Wrap" />
+                            <Button Classes="secondary" Command="{Binding OpenToastFoldersCommand}" IsVisible="{Binding ToastHasFolders}"
+                                    HorizontalAlignment="Left" Padding="10,5" Margin="0,6,0,0">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <c:Icon Kind="folder" Width="14" Height="14" />
+                                    <TextBlock Text="フォルダを開く" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <Button Grid.Column="2" Classes="ghost icon" Width="24" Height="24" VerticalAlignment="Top"
+                                Command="{Binding DismissToastCommand}" ToolTip.Tip="閉じる">
+                            <c:Icon Kind="x" Width="14" Height="14" />
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- キャンバスのツールバー -->
+                <Border Classes="floating" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="16" Padding="4"
+                        IsVisible="{Binding HasBase}">
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                        <Button Classes="ghost icon" Click="OnZoomOut" ToolTip.Tip="縮小（ホイール）">
+                            <c:Icon Kind="zoom-out" />
+                        </Button>
+                        <TextBlock Classes="caption num" VerticalAlignment="Center" MinWidth="44" TextAlignment="Center"
+                                   Text="{Binding #Canvas.Zoom, StringFormat='{}{0:P0}'}" IsVisible="{Binding IsCropMode}" />
+                        <TextBlock Classes="caption num" VerticalAlignment="Center" MinWidth="44" TextAlignment="Center"
+                                   Text="{Binding #DisplayCanvas.Zoom, StringFormat='{}{0:P0}'}" IsVisible="{Binding IsDisplay}" />
+                        <Button Classes="ghost icon" Click="OnZoomIn" ToolTip.Tip="拡大（ホイール）">
+                            <c:Icon Kind="zoom-in" />
+                        </Button>
+                        <Separator Classes="v" />
+                        <Button Classes="ghost icon" Click="OnFit" ToolTip.Tip="全体を表示（ダブルクリック）">
+                            <c:Icon Kind="fit" />
+                        </Button>
+                        <Button Classes="ghost icon" Click="OnZoomToCrop" ToolTip.Tip="枠に寄る" IsVisible="{Binding IsCropMode}">
+                            <c:Icon Kind="focus" />
+                        </Button>
+                        <Separator Classes="v" />
+                        <ToggleButton Classes="tool" IsChecked="{Binding ShowGuides}" ToolTip.Tip="ガイド線（G）" IsVisible="{Binding IsCropMode}">
+                            <c:Icon Kind="grid" />
+                        </ToggleButton>
+                        <Button Classes="ghost icon" ToolTip.Tip="操作方法">
+                            <c:Icon Kind="help" />
+                            <Button.Flyout>
+                                <Flyout Placement="Top">
+                                    <StackPanel Spacing="10" Width="300" Margin="4">
+                                        <TextBlock Text="操作方法" FontWeight="SemiBold" />
+                                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="8">
+                                            <Grid.Styles>
+                                                <Style Selector="Border.key">
+                                                    <Setter Property="Background" Value="{DynamicResource Surface3}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource StrokeStrong}" />
+                                                    <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                                    <Setter Property="CornerRadius" Value="4" />
+                                                    <Setter Property="Padding" Value="6,1" />
+                                                    <Setter Property="HorizontalAlignment" Value="Left" />
+                                                </Style>
+                                                <Style Selector="Border.key TextBlock">
+                                                    <Setter Property="FontSize" Value="11" />
+                                                </Style>
+                                                <Style Selector="TextBlock.desc">
+                                                    <Setter Property="FontSize" Value="12" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+                                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                                </Style>
+                                            </Grid.Styles>
+                                            <Border Grid.Row="0" Classes="key"><TextBlock Text="枠をドラッグ" /></Border>
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Classes="desc" Text="枠を移動" />
+                                            <Border Grid.Row="1" Classes="key"><TextBlock Text="四隅をドラッグ" /></Border>
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Classes="desc" TextWrapping="Wrap"
+                                                       Text="枠を拡縮（顔アイコンは正方形のまま。バストアップは Shift を押すと縦横比を保つ）" />
+                                            <Border Grid.Row="2" Classes="key"><TextBlock Text="ホイール" /></Border>
+                                            <TextBlock Grid.Row="2" Grid.Column="1" Classes="desc" Text="表示を拡大・縮小" />
+                                            <Border Grid.Row="3" Classes="key"><TextBlock x:Name="ModWheelKey" Text="Ctrl + ホイール" /></Border>
+                                            <TextBlock Grid.Row="3" Grid.Column="1" Classes="desc" Text="枠を中心から拡縮" />
+                                            <Border Grid.Row="4" Classes="key"><TextBlock Text="枠の外 / 右ドラッグ" /></Border>
+                                            <TextBlock Grid.Row="4" Grid.Column="1" Classes="desc" Text="表示を移動" />
+                                            <Border Grid.Row="5" Classes="key"><TextBlock Text="矢印キー" /></Border>
+                                            <TextBlock Grid.Row="5" Grid.Column="1" Classes="desc" Text="1px 移動（Shift で 10px）" />
+                                            <Border Grid.Row="6" Classes="key"><TextBlock Text="G" /></Border>
+                                            <TextBlock Grid.Row="6" Grid.Column="1" Classes="desc" Text="ガイド線の表示を切り替え" />
+                                            <Border Grid.Row="7" Classes="key"><TextBlock Text="ダブルクリック" /></Border>
+                                            <TextBlock Grid.Row="7" Grid.Column="1" Classes="desc" Text="全体を表示" />
+                                        </Grid>
+                                        <TextBlock Classes="muted" TextWrapping="Wrap"
+                                                   Text="一覧で表情を選ぶと、その表情でキャンバスとプレビューを確認できます。" />
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Panel>
+
+            <!-- ===================== 設定（右） ===================== -->
+            <Border Grid.Column="2" Background="{DynamicResource Surface1}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1,1,0,0">
+                <DockPanel>
+                    <!-- 書き出し -->
+                    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Stroke}" BorderThickness="0,1,0,0" Padding="16,14,16,16">
+                        <Panel>
+                            <StackPanel Spacing="10" IsVisible="{Binding !IsExporting}">
+                                <Button Classes="primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Height="40"
+                                        Command="{Binding ExportCommand}" IsEnabled="{Binding CanExport}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <c:Icon Kind="download" />
+                                        <TextBlock Text="{Binding ExportButtonText}" FontSize="13.5" />
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock Classes="caption num" Text="{Binding ExportSummary}" HorizontalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Spacing="10" IsVisible="{Binding IsExporting}">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="書き出し中…" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="1" Classes="caption num" Text="{Binding ExportProgressText}" />
+                                </Grid>
+                                <ProgressBar Value="{Binding ExportProgress}" Maximum="100" />
+                                <Button Classes="secondary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Command="{Binding CancelExportCommand}">キャンセル</Button>
+                            </StackPanel>
+                        </Panel>
+                    </Border>
+
+                    <!-- 作るもの（顔アイコン / バストアップ / ディスプレイ） -->
+                    <Border DockPanel.Dock="Top" Padding="16,14,16,12" BorderBrush="{DynamicResource Stroke}" BorderThickness="0,0,0,1"
+                            >
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Border Classes="segmented" IsEnabled="{Binding CanEdit}">
+                            <UniformGrid Columns="3">
+                                <Button Classes="seg" Content="顔アイコン" Command="{Binding SetModeCommand}" CommandParameter="face"
+                                        ToolTip.Tip="正方形で切り抜き、指定サイズに縮小して書き出す"
+                                        Classes.on="{Binding Mode, Converter={x:Static v:EqualsConverter.Instance}, ConverterParameter=face}" />
+                                <Button Classes="seg" Content="バストアップ" Command="{Binding SetModeCommand}" CommandParameter="bust"
+                                        ToolTip.Tip="幅と高さを指定して切り抜き、そのままの大きさで書き出す"
+                                        Classes.on="{Binding Mode, Converter={x:Static v:EqualsConverter.Instance}, ConverterParameter=bust}" />
+                                <Button Classes="seg" Content="ディスプレイ" Command="{Binding SetModeCommand}" CommandParameter="display"
+                                        ToolTip.Tip="立ち絵と表情の一覧を 1 枚の画像に並べる"
+                                        Classes.on="{Binding Mode, Converter={x:Static v:EqualsConverter.Instance}, ConverterParameter=display}" />
+                            </UniformGrid>
+                        </Border>
+                        <!-- ソフトウェア情報（バージョン・アップデート） -->
+                        <Panel Grid.Column="1" VerticalAlignment="Center">
+                            <Button Classes="ghost icon" Click="OnAbout" ToolTip.Tip="ソフトウェア情報・アップデート">
+                                <c:Icon Kind="info" />
+                            </Button>
+                            <!-- 更新があるときの目印 -->
+                            <Ellipse Width="8" Height="8" Fill="{DynamicResource Accent}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                     Margin="0,3,3,0" IsHitTestVisible="False" IsVisible="{Binding HasUpdateBanner}" />
+                        </Panel>
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer>
+                        <Panel>
+                        <!-- ディスプレイ画像の設定 -->
+                        <v:DisplayInspector Margin="16,6,16,20" IsVisible="{Binding IsDisplay}" IsEnabled="{Binding CanEdit}" />
+                        <StackPanel Margin="16,14,16,20" Spacing="24" IsEnabled="{Binding CanEdit}" IsVisible="{Binding IsCropMode}">
+
+                            <!-- 仕上がり -->
+                            <StackPanel>
+                                <TextBlock Classes="section" Text="仕上がり" />
+                                <Border Width="288" Height="288" HorizontalAlignment="Left" CornerRadius="{StaticResource RadiusL}" ClipToBounds="True"
+                                        Background="{DynamicResource SurfaceSunken}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1">
+                                    <Panel>
+                                        <!-- 出力と同じ縦横比の枠 -->
+                                        <Panel Width="{Binding PreviewW}" Height="{Binding PreviewH}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Background="{x:Static v:MainWindow.CheckerBrush}" IsVisible="{Binding HasBase}">
+                                            <Image Source="{Binding OutputPreview}" Stretch="Fill" RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                            <c:GuideOverlay ShowGuides="{Binding ShowGuides}" GuideCenter="{Binding GuideCenter}"
+                                                            GuideThirds="{Binding GuideThirds}" GuideCircle="{Binding ShowCircleGuide}" />
+                                        </Panel>
+                                        <Border Background="{DynamicResource Surface1}" IsVisible="{Binding !HasBase}">
+                                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                                                <c:Icon Kind="focus" Width="28" Height="28" Foreground="{DynamicResource TextTertiary}" HorizontalAlignment="Center" />
+                                                <TextBlock Classes="muted" TextAlignment="Center" Text="立ち絵を読み込むと&#x0a;ここに仕上がりが出ます" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Panel>
+                                </Border>
+                                <Grid ColumnDefinitions="*,Auto" Margin="2,8,2,0">
+                                    <TextBlock Classes="caption" Text="{Binding PreviewCaption}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="1" Classes="muted num">
+                                        <Run Text="{Binding OutW}" /><Run Text=" × " /><Run Text="{Binding OutH}" /><Run Text=" px" />
+                                    </TextBlock>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- 切り抜き範囲（顔アイコン：正方形） -->
+                            <StackPanel IsVisible="{Binding IsFace}">
+                                <TextBlock Classes="section" Text="切り抜き範囲（ベース画像の px）" />
+                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" IsEnabled="{Binding HasBase}">
+                                    <NumericUpDown Classes="field" Value="{Binding CropX, Converter={x:Static v:IntDecimalConverter.Instance}}" Minimum="-100000" Maximum="100000">
+                                        <NumericUpDown.InnerLeftContent><TextBlock Classes="inner" Text="X" /></NumericUpDown.InnerLeftContent>
+                                    </NumericUpDown>
+                                    <NumericUpDown Grid.Column="1" Classes="field" Value="{Binding CropY, Converter={x:Static v:IntDecimalConverter.Instance}}" Minimum="-100000" Maximum="100000">
+                                        <NumericUpDown.InnerLeftContent><TextBlock Classes="inner" Text="Y" /></NumericUpDown.InnerLeftContent>
+                                    </NumericUpDown>
+                                    <NumericUpDown Grid.Column="2" Classes="field" Value="{Binding CropW, Converter={x:Static v:IntDecimalConverter.Instance}}" Minimum="8" Maximum="100000">
+                                        <NumericUpDown.InnerLeftContent><TextBlock Classes="inner" Text="辺" /></NumericUpDown.InnerLeftContent>
+                                    </NumericUpDown>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- 切り抜きサイズ（バストアップ：幅 × 高さ） -->
+                            <StackPanel IsVisible="{Binding IsBust}" Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Classes="section" Text="切り抜きサイズ（px）" Margin="0" />
+                                    <TextBlock Grid.Column="1" Classes="muted num" Text="{Binding AspectText}" VerticalAlignment="Center" />
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="6" IsEnabled="{Binding HasBase}">
+                                    <NumericUpDown Classes="field" Value="{Binding CropW, Converter={x:Static v:IntDecimalConverter.Instance}}" Minimum="8" Maximum="100000">
+                                        <NumericUpDown.InnerLeftContent><TextBlock Classes="inner" Text="幅" /></NumericUpDown.InnerLeftContent>
+                                    </NumericUpDown>
+                                    <TextBlock Grid.Column="1" Text="×" Classes="muted" VerticalAlignment="Center" />
+                                    <NumericUpDown Grid.Column="2" Classes="field" Value="{Binding CropH, Converter={x:Static v:IntDecimalConverter.Instance}}" Minimum="8" Maximum="100000">
+                                        <NumericUpDown.InnerLeftContent><TextBlock Classes="inner" Text="高さ" /></NumericUpDown.InnerLeftContent>
+                                    </NumericUpDown>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsEnabled="{Binding HasBase}">
+                                    <NumericUpDown Classes="field" Value="{Binding CropX, Converter={x:Static v:IntDecimalConverter.Instance}}" Minimum="-100000" Maximum="100000">
+                                        <NumericUpDown.InnerLeftContent><TextBlock Classes="inner" Text="X" /></NumericUpDown.InnerLeftContent>
+                                    </NumericUpDown>
+                                    <NumericUpDown Grid.Column="1" Classes="field" Value="{Binding CropY, Converter={x:Static v:IntDecimalConverter.Instance}}" Minimum="-100000" Maximum="100000">
+                                        <NumericUpDown.InnerLeftContent><TextBlock Classes="inner" Text="Y" /></NumericUpDown.InnerLeftContent>
+                                    </NumericUpDown>
+                                </Grid>
+                                <TextBlock Classes="muted" TextWrapping="Wrap" Margin="2,0,0,0"
+                                           Text="この大きさのまま書き出します。キャンバスで枠をドラッグして位置を決めてください。" />
+                            </StackPanel>
+
+                            <!-- 出力サイズ（顔アイコンのみ） -->
+                            <StackPanel Spacing="8" IsVisible="{Binding IsFace}">
+                                <TextBlock Classes="section" Text="出力サイズ" Margin="0" />
+                                <Border Classes="segmented">
+                                    <UniformGrid Columns="5">
+                                        <Button Classes="seg" Content="128" Command="{Binding SetOutputSizeCommand}" CommandParameter="128"
+                                                Classes.on="{Binding OutputPreset, Converter={x:Static v:EqualsConverter.Instance}, ConverterParameter=128}" />
+                                        <Button Classes="seg" Content="256" Command="{Binding SetOutputSizeCommand}" CommandParameter="256"
+                                                Classes.on="{Binding OutputPreset, Converter={x:Static v:EqualsConverter.Instance}, ConverterParameter=256}" />
+                                        <Button Classes="seg" Content="512" Command="{Binding SetOutputSizeCommand}" CommandParameter="512"
+                                                Classes.on="{Binding OutputPreset, Converter={x:Static v:EqualsConverter.Instance}, ConverterParameter=512}" />
+                                        <Button Classes="seg" Content="1024" Command="{Binding SetOutputSizeCommand}" CommandParameter="1024"
+                                                Classes.on="{Binding OutputPreset, Converter={x:Static v:EqualsConverter.Instance}, ConverterParameter=1024}" />
+                                        <Button Classes="seg" Content="原寸" Command="{Binding SetOutputSizeCommand}" CommandParameter="orig"
+                                                ToolTip.Tip="切り抜いたままのサイズで書き出す"
+                                                Classes.on="{Binding OutputPreset, Converter={x:Static v:EqualsConverter.Instance}, ConverterParameter=orig}" />
+                                    </UniformGrid>
+                                </Border>
+                                <NumericUpDown Classes="field" IsEnabled="{Binding !KeepCropSize}" Minimum="1" Maximum="8192"
+                                               Value="{Binding OutputSize, Converter={x:Static v:IntDecimalConverter.Instance}}">
+                                    <NumericUpDown.InnerLeftContent><TextBlock Classes="inner" Text="任意" /></NumericUpDown.InnerLeftContent>
+                                    <NumericUpDown.InnerRightContent><TextBlock Classes="inner-right" Text="px" /></NumericUpDown.InnerRightContent>
+                                </NumericUpDown>
+                            </StackPanel>
+
+                            <!-- 背景 -->
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="section" Text="背景" Margin="0" />
+                                <Border Classes="segmented">
+                                    <UniformGrid Columns="2">
+                                        <Button Classes="seg" Content="透過" Command="{Binding SetBackgroundCommand}" CommandParameter="none"
+                                                Classes.on="{Binding BackgroundPreset, Converter={x:Static v:EqualsConverter.Instance}, ConverterParameter=none}" />
+                                        <Button Classes="seg" Content="単色で塗る" Command="{Binding SetBackgroundCommand}" CommandParameter="color"
+                                                Classes.on="{Binding BackgroundPreset, Converter={x:Static v:EqualsConverter.Instance}, ConverterParameter=color}" />
+                                    </UniformGrid>
+                                </Border>
+                                <TextBox Text="{Binding BackgroundColor}" PlaceholderText="#FFFFFF" IsVisible="{Binding UseBackground}">
+                                    <TextBox.InnerLeftContent>
+                                        <Border Width="16" Height="16" CornerRadius="4" Margin="8,0,0,0" Background="{Binding SwatchBrush}"
+                                                BorderBrush="{DynamicResource StrokeStrong}" BorderThickness="1" />
+                                    </TextBox.InnerLeftContent>
+                                </TextBox>
+                            </StackPanel>
+
+                            <!-- ガイド -->
+                            <StackPanel Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Classes="section" Text="ガイド（表示のみ）" Margin="0" VerticalAlignment="Center" />
+                                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowGuides}" OnContent="" OffContent="" MinWidth="0" Padding="0" />
+                                </Grid>
+                                <WrapPanel ItemSpacing="6" LineSpacing="6" IsEnabled="{Binding ShowGuides}">
+                                    <ToggleButton Classes="chip" IsChecked="{Binding GuideCenter}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <c:Icon Kind="crosshair" Width="14" Height="14" Foreground="#4FC3F7" />
+                                            <TextBlock Text="中心" />
+                                        </StackPanel>
+                                    </ToggleButton>
+                                    <ToggleButton Classes="chip" IsChecked="{Binding GuideThirds}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <c:Icon Kind="grid" Width="14" Height="14" />
+                                            <TextBlock Text="三分割" />
+                                        </StackPanel>
+                                    </ToggleButton>
+                                    <ToggleButton Classes="chip" IsChecked="{Binding GuideCircle}" ToolTip.Tip="丸く切り抜いて使うときに見える範囲"
+                                                  IsVisible="{Binding IsFace}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <c:Icon Kind="circle" Width="14" Height="14" Foreground="#FF80AB" />
+                                            <TextBlock Text="円" />
+                                        </StackPanel>
+                                    </ToggleButton>
+                                </WrapPanel>
+                            </StackPanel>
+
+                            <!-- 書き出し先 -->
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="section" Text="書き出し先" Margin="0" />
+                                <TextBox Text="{Binding OutFolderName}" PlaceholderText="顔アイコン" IsVisible="{Binding IsFace}">
+                                    <TextBox.InnerLeftContent>
+                                        <c:Icon Kind="folder" Width="14" Height="14" Margin="9,0,0,0" Foreground="{DynamicResource TextTertiary}" />
+                                    </TextBox.InnerLeftContent>
+                                </TextBox>
+                                <TextBox Text="{Binding BustFolderName}" PlaceholderText="バストアップ" IsVisible="{Binding IsBust}">
+                                    <TextBox.InnerLeftContent>
+                                        <c:Icon Kind="folder" Width="14" Height="14" Margin="9,0,0,0" Foreground="{DynamicResource TextTertiary}" />
+                                    </TextBox.InnerLeftContent>
+                                </TextBox>
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                    <TextBox Text="{Binding Prefix}" PlaceholderText="前に付ける" />
+                                    <TextBox Grid.Column="1" Text="{Binding Suffix}" PlaceholderText="後ろに付ける" />
+                                </Grid>
+                                <StackPanel Spacing="3" Margin="2,2,0,0">
+                                    <TextBlock Classes="muted" TextTrimming="CharacterEllipsis">
+                                        <Run Text="場所  " /><Run Text="{Binding DestinationHint}" Foreground="{DynamicResource TextSecondary}" />
+                                    </TextBlock>
+                                    <TextBlock Classes="muted" TextTrimming="CharacterEllipsis">
+                                        <Run Text="名前  " /><Run Text="{Binding FileNameExample}" Foreground="{DynamicResource TextSecondary}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                        </Panel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- ===================== ドロップ中 ===================== -->
+        <Border x:Name="DropOverlay" Grid.Row="0" Grid.RowSpan="2" IsVisible="False" IsHitTestVisible="False"
+                Background="{DynamicResource AccentSoft}" Padding="14">
+            <Panel>
+                <Rectangle RadiusX="16" RadiusY="16" Stroke="{DynamicResource Accent}" StrokeThickness="2" StrokeDashArray="6,4" />
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                    <Border Width="64" Height="64" CornerRadius="32" Background="{DynamicResource Accent}" HorizontalAlignment="Center">
+                        <c:Icon Kind="upload" Width="30" Height="30" Foreground="White" />
+                    </Border>
+                    <TextBlock Text="ドロップして追加" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Classes="caption" Text="フォルダの場合は直下の画像を読み込みます" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Panel>
+        </Border>
+    </Grid>
+</Window>
