@@ -243,7 +243,7 @@
         <Expander Classes="section" Header="表情の並び">
             <StackPanel Classes="rows">
                 <TextBlock Classes="muted" TextWrapping="Wrap"
-                           Text="顔アイコンの枠で切り抜いて並べます。載せる表情は左の一覧のチェックで選べます（並び順も一覧の順）。" />
+                           Text="顔アイコンの枠で切り抜いて並べます。載せる表情は左の一覧のチェックで選べます。並び順は一覧の順で、一覧をドラッグするか ∧∨（Alt+↑↓）で入れ替えられます。" />
                 <TextBlock Classes="field-label" Text="マスの縦横比" Margin="0,4,0,0" />
                 <c:ChoiceField Options="1:1,4:3,3:2,16:9,3:4" Value="{Binding Display.CellAspect}" />
                 <c:SliderField Label="引き・寄り" Minimum="50" Maximum="250" Suffix="%" Value="{Binding Display.CellZoom}" />

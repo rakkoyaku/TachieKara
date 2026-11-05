@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -19,6 +20,7 @@ public partial class MainWindow : Window, IDialogs
     public MainWindow()
     {
         InitializeComponent();
+        InitReorder();
         AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, (_, _) => DropOverlay.IsVisible = false);
@@ -367,6 +369,31 @@ public partial class MainWindow : Window, IDialogs
                 await Task.Delay(300);
                 Console.WriteLine($"[rename] names: {string.Join(", ", v.Images.Select(i => i.OutputName))}");
             }
+
+            if (Environment.GetEnvironmentVariable("TACHIEKARA_REORDERTEST") is { Length: > 0 } && v.Images.Count > 3)
+            {
+                string Order() => string.Join(" ", v.Images.Select(i => i.Stem));
+                Console.WriteLine($"[reorder] start: {Order()}");
+                FileList.SelectedIndex = 2;
+                OnListKeyDown(FileList, new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = Key.Up, KeyModifiers = KeyModifiers.Alt });
+                Console.WriteLine($"[reorder] alt+up (#2): {Order()} sel={FileList.SelectedIndex}");
+                FileList.Selection.Clear(); FileList.Selection.Select(0); FileList.Selection.Select(2);
+                OnMoveDown(null, new RoutedEventArgs());
+                Console.WriteLine($"[reorder] down (#0,#2): {Order()} sel={string.Join(",", FileList.Selection.SelectedIndexes)}");
+                OnMoveTop(null, new RoutedEventArgs());
+                Console.WriteLine($"[reorder] top: {Order()}");
+                var first = v.Images[0];
+                MoveSelected(sel => v.MoveTo(sel, v.Images.Count), [first]);
+                Console.WriteLine($"[reorder] drop first at end: {Order()}");
+                v.IsDisplay = true;
+                await Task.Delay(2500);
+                _reorderItems = [v.Images[1]]; _reordering = true;
+                UpdateDropLine(140);
+                Console.WriteLine($"[reorder] dropline index={_reorderIndex}");
+                await Task.Delay(300);
+                await Shot("_reorder");
+                EndReorder();
+            }
         }
         if (Environment.GetEnvironmentVariable("TACHIEKARA_AUTOANSWER") is { Length: > 0 } answers && Vm is { } vm)
         {
@@ -483,6 +510,11 @@ public partial class MainWindow : Window, IDialogs
             OnRename(sender, e);
             e.Handled = true;
         }
+        else if (e.Key is Key.Up or Key.Down && e.KeyModifiers == KeyModifiers.Alt)
+        {
+            if (e.Key == Key.Up) OnMoveUp(sender, e); else OnMoveDown(sender, e);
+            e.Handled = true;
+        }
     }
 
     static bool IsInTextBox(object? source) =>
@@ -555,9 +587,125 @@ public partial class MainWindow : Window, IDialogs
         if (SelectedImages.FirstOrDefault() is { } item) OpenFolder(item.Folder);
     }
 
-    void OnSortMenu(object? sender, RoutedEventArgs e)
+    // ---- 手での並べ替え ----
+
+    void OnMoveUp(object? sender, RoutedEventArgs e) => MoveSelected(sel => Vm!.MoveBy(sel, -1));
+    void OnMoveDown(object? sender, RoutedEventArgs e) => MoveSelected(sel => Vm!.MoveBy(sel, +1));
+    void OnMoveTop(object? sender, RoutedEventArgs e) => MoveSelected(sel => Vm!.MoveTo(sel, 0));
+    void OnMoveBottom(object? sender, RoutedEventArgs e) => MoveSelected(sel => Vm!.MoveTo(sel, Vm.Images.Count));
+
+    void MoveSelected(Func<List<SourceImage>, bool> move, List<SourceImage>? items = null)
     {
-        if (sender is MenuItem { Tag: string column }) Vm?.Sort(column);
+        if (Vm is null) return;
+        var sel = items ?? SelectedImages;
+        if (sel.Count == 0 || !move(sel)) return;
+        // 並べ替えると選択が外れることがあるので、選び直して見える所へ
+        // （SelectedItem を代入すると複数選択が 1 つになるので、主の項目を先に選ぶ）
+        var primary = FileList.SelectedItem is SourceImage p && sel.Contains(p) ? p : sel[0];
+        FileList.Selection.Clear();
+        FileList.Selection.Select(Vm.Images.IndexOf(primary));
+        foreach (var s in sel.Where(s => s != primary)) FileList.Selection.Select(Vm.Images.IndexOf(s));
+        FileList.ScrollIntoView(primary);
+    }
+
+    // ドラッグ: 押した項目（選択中なら選択中のものすべて）を、離した位置へ差し込む
+    Point? _reorderStart;
+    List<SourceImage>? _reorderItems;
+    bool _reordering;
+    int _reorderIndex = -1;
+
+    void InitReorder()
+    {
+        FileList.AddHandler(PointerPressedEvent, OnReorderPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+        FileList.AddHandler(PointerMovedEvent, OnReorderMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+        FileList.AddHandler(PointerReleasedEvent, OnReorderReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+        FileList.AddHandler(PointerCaptureLostEvent, (_, _) => EndReorder(), RoutingStrategies.Bubble, handledEventsToo: true);
+    }
+
+    void OnReorderPressed(object? sender, PointerPressedEventArgs e)
+    {
+        EndReorder();
+        if (Vm is not { IsExporting: false } || !e.GetCurrentPoint(FileList).Properties.IsLeftButtonPressed) return;
+        if (e.KeyModifiers != KeyModifiers.None) return;   // Ctrl / Shift は選択の操作
+        if (e.Source is not Avalonia.Visual v || IsInTextBox(v) || v is CheckBox || v.FindAncestorOfType<CheckBox>() is not null) return;
+        if (v.FindAncestorOfType<ListBoxItem>(includeSelf: true)?.DataContext is not SourceImage item) return;
+        // 押した時点の選択を覚えておく（押すと ListBox が 1 つだけの選択にしてしまうため）
+        var sel = SelectedImages;
+        _reorderItems = sel.Contains(item) ? sel : [item];
+        _reorderStart = e.GetPosition(FileList);
+    }
+
+    void OnReorderMoved(object? sender, PointerEventArgs e)
+    {
+        if (_reorderStart is not { } start || _reorderItems is null || Vm is null) return;
+        var p = e.GetPosition(FileList);
+        if (!_reordering)
+        {
+            if (Math.Abs(p.Y - start.Y) < 6) return;
+            _reordering = true;
+            e.Pointer.Capture(FileList);
+            MoveSelectionBack();
+        }
+        // 端の近くでは一覧を送る
+        if (FileList.Scroll is { } sc)
+        {
+            const double edge = 28;
+            var dy = p.Y < edge ? -(edge - p.Y) : p.Y > FileList.Bounds.Height - edge ? p.Y - (FileList.Bounds.Height - edge) : 0;
+            if (dy != 0) sc.Offset = new Vector(sc.Offset.X, Math.Clamp(sc.Offset.Y + dy * 0.6, 0, Math.Max(0, sc.Extent.Height - sc.Viewport.Height)));
+        }
+        UpdateDropLine(p.Y);
+        e.Handled = true;
+    }
+
+    void OnReorderReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_reordering && _reorderItems is { } items && _reorderIndex >= 0)
+        {
+            var index = _reorderIndex;
+            EndReorder();
+            e.Pointer.Capture(null);
+            MoveSelected(sel => Vm!.MoveTo(sel, index), items);
+            e.Handled = true;
+            return;
+        }
+        EndReorder();
+    }
+
+    // ListBox が押した時点で選択を 1 つにしてしまうので、ドラッグが始まったら選択を戻す
+    void MoveSelectionBack()
+    {
+        if (_reorderItems is not { Count: > 1 } items || Vm is null) return;
+        FileList.Selection.Clear();
+        foreach (var s in items) FileList.Selection.Select(Vm.Images.IndexOf(s));
+    }
+
+    void UpdateDropLine(double y)
+    {
+        // 見えている項目の中で、指の位置がその項目の上半分にある最初のもの → その前に差し込む
+        int index = -1;
+        double lineY = 0, lastBottom = 0;
+        int lastIndex = -1;
+        foreach (var c in FileList.GetRealizedContainers().OfType<Control>())
+        {
+            int i = FileList.IndexFromContainer(c);
+            if (i < 0 || c.TranslatePoint(new Point(0, 0), FileList) is not { } tl) continue;
+            var top = tl.Y; var bottom = top + c.Bounds.Height;
+            if (y < top + c.Bounds.Height / 2 && (index < 0 || i < index)) { index = i; lineY = top; }
+            if (i > lastIndex) { lastIndex = i; lastBottom = bottom; }
+        }
+        if (index < 0) { index = lastIndex + 1; lineY = lastBottom; }
+        _reorderIndex = index;
+        DropLine.Margin = new Thickness(10, Math.Max(0, lineY - 1.5), 10, 0);
+        DropLine.IsVisible = true;
+    }
+
+    void EndReorder()
+    {
+        _reorderStart = null;
+        _reorderItems = null;
+        _reordering = false;
+        _reorderIndex = -1;
+        DropLine.IsVisible = false;
     }
 
     // ---- ソフトウェア情報 ----

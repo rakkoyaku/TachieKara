@@ -29,6 +29,8 @@ public sealed class AppSettings
 
     /// <summary>画像ごとに付けた名前（表情名）。キー: 画像のフルパス（小文字）。</summary>
     public Dictionary<string, string> Names { get; set; } = new();
+    /// <summary>手で並べ替えた一覧の順（キー: NameKey → 位置）。同じ画像を開き直したとき並びを戻す。</summary>
+    public Dictionary<string, int> Order { get; set; } = new();
 
     /// <summary>ディスプレイ画像の今の設定。</summary>
     public TachieKara.Models.DisplaySpec? Display { get; set; }

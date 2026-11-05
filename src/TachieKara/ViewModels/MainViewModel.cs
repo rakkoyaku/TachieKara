@@ -563,6 +563,8 @@ public sealed partial class MainViewModel : ViewModelBase
         var newFiles = files.Distinct(PathComparer).Where(f => !existing.Contains(f))
             .OrderBy(f => Path.GetDirectoryName(f), NaturalComparer.Instance)
             .ThenBy(Path.GetFileName, NaturalComparer.Instance)
+            // 前に手で並べ替えた画像は、その順に戻す（初めての画像は後ろに名前順で）
+            .OrderBy(f => _settings.Order.TryGetValue(AppSettings.NameKey(f), out var n) ? n : int.MaxValue)
             .ToList();
         if (newFiles.Count == 0)
         {
@@ -786,27 +788,48 @@ public sealed partial class MainViewModel : ViewModelBase
 
     public void CancelRename(SourceImage item) => item.IsRenaming = false;
 
-    public void Sort(string column)
+    // ---- 手での並べ替え（一覧の順 = ディスプレイ画像の並び順） ----
+
+    /// <summary>選んだ画像をまとめて 1 つ上（delta = -1）・下（+1）へ動かす。動いたら true。</summary>
+    public bool MoveBy(IReadOnlyList<SourceImage> items, int delta)
     {
-        var nat = NaturalComparer.Instance;
-        var ordered = column switch
+        if (IsExporting || items.Count == 0 || delta == 0) return false;
+        var set = items.ToHashSet();
+        var list = Images.ToList();
+        var idx = Enumerable.Range(0, list.Count).Where(i => set.Contains(list[i])).ToList();
+        if (delta > 0) idx.Reverse();
+        int bound = delta < 0 ? 0 : list.Count - 1;   // 端に着いたものはそこで止め、後続はその手前まで
+        foreach (var i in idx)
         {
-            "status" => Images.OrderBy(i => i.IsBase ? 0 : i.IsError ? 3 : i.IsMismatch ? 2 : 1),
-            "folder" => Images.OrderBy(i => i.Folder, nat),
-            "size" => Images.OrderBy(i => (long)i.Width * i.Height).ThenBy(i => i.Width),
-            "filesize" => Images.OrderBy(i => i.FileSize),
-            _ => Images.OrderBy(i => i.FileName, nat),
-        };
-        var sorted = ordered
-            .ThenBy(i => i.Folder, nat)
-            .ThenBy(i => i.FileName, NaturalComparer.Instance)
-            .ToList();
-        if (sorted.SequenceEqual(Images)) sorted.Reverse();   // 2 回押したら逆順
-        for (int n = 0; n < sorted.Count; n++)
+            if (i == bound) { bound -= delta; continue; }
+            (list[i], list[i + delta]) = (list[i + delta], list[i]);
+        }
+        return ApplyOrder(list);
+    }
+
+    /// <summary>選んだ画像を、今の一覧の insertIndex の位置（その項目の前）へまとめて動かす。</summary>
+    public bool MoveTo(IReadOnlyList<SourceImage> items, int insertIndex)
+    {
+        if (IsExporting || items.Count == 0) return false;
+        var set = items.ToHashSet();
+        var moving = Images.Where(set.Contains).ToList();
+        int before = Images.Take(Math.Clamp(insertIndex, 0, Images.Count)).Count(set.Contains);
+        var rest = Images.Where(i => !set.Contains(i)).ToList();
+        rest.InsertRange(Math.Clamp(insertIndex - before, 0, rest.Count), moving);
+        return ApplyOrder(rest);
+    }
+
+    bool ApplyOrder(List<SourceImage> order)
+    {
+        if (order.SequenceEqual(Images)) return false;
+        for (int n = 0; n < order.Count; n++)
         {
-            var cur = Images.IndexOf(sorted[n]);
+            var cur = Images.IndexOf(order[n]);
             if (cur != n) Images.Move(cur, n);
         }
+        for (int n = 0; n < Images.Count; n++) _settings.Order[AppSettings.NameKey(Images[n].Path)] = n;
+        SettingsStore.Save(_settings);
+        return true;
     }
 
     // ---- 切り抜き結果のプレビュー ----

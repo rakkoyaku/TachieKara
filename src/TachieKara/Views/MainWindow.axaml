@@ -54,18 +54,16 @@
                                 <TextBlock Text="{Binding AssetCountText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" />
                             </Border>
                         </StackPanel>
-                        <Button Grid.Column="1" Classes="ghost icon" ToolTip.Tip="並べ替え" IsEnabled="{Binding CanEdit}">
-                            <c:Icon Kind="sort" />
-                            <Button.Flyout>
-                                <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                    <MenuItem Header="名前順" Tag="name" Click="OnSortMenu" />
-                                    <MenuItem Header="フォルダ順" Tag="folder" Click="OnSortMenu" />
-                                    <MenuItem Header="サイズ順" Tag="size" Click="OnSortMenu" />
-                                    <MenuItem Header="容量順" Tag="filesize" Click="OnSortMenu" />
-                                    <MenuItem Header="状態順（ベース・サイズ違い）" Tag="status" Click="OnSortMenu" />
-                                </MenuFlyout>
-                            </Button.Flyout>
-                        </Button>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" IsEnabled="{Binding CanEdit}" IsVisible="{Binding HasImages}">
+                            <Button Classes="ghost icon" Click="OnMoveUp"
+                                    ToolTip.Tip="選択中の画像を上へ（Alt+↑）&#x0a;一覧はドラッグでも並べ替えられます。ディスプレイ画像の表情もこの順に並びます。">
+                                <c:Icon Kind="chevron-up" />
+                            </Button>
+                            <Button Classes="ghost icon" Click="OnMoveDown"
+                                    ToolTip.Tip="選択中の画像を下へ（Alt+↓）&#x0a;一覧はドラッグでも並べ替えられます。ディスプレイ画像の表情もこの順に並びます。">
+                                <c:Icon Kind="chevron-down" />
+                            </Button>
+                        </StackPanel>
                         <Button Grid.Column="2" Classes="ghost icon" ToolTip.Tip="素材を追加" IsEnabled="{Binding CanEdit}">
                             <c:Icon Kind="plus" />
                             <Button.Flyout>
@@ -179,6 +177,15 @@
                                         <MenuItem.Icon><c:Icon Kind="folder" /></MenuItem.Icon>
                                     </MenuItem>
                                     <Separator />
+                                    <MenuItem Header="上へ" InputGesture="Alt+Up" Click="OnMoveUp">
+                                        <MenuItem.Icon><c:Icon Kind="chevron-up" /></MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="下へ" InputGesture="Alt+Down" Click="OnMoveDown">
+                                        <MenuItem.Icon><c:Icon Kind="chevron-down" /></MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="いちばん上へ" Click="OnMoveTop" />
+                                    <MenuItem Header="いちばん下へ" Click="OnMoveBottom" />
+                                    <Separator />
                                     <MenuItem Header="一覧から外す" Click="OnRemove">
                                         <MenuItem.Icon><c:Icon Kind="trash" /></MenuItem.Icon>
                                     </MenuItem>
@@ -228,6 +235,9 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+                        <!-- ドラッグで並べ替えるときの差し込み位置 -->
+                        <Border x:Name="DropLine" Height="3" CornerRadius="1.5" Background="{DynamicResource Accent}"
+                                VerticalAlignment="Top" IsVisible="False" IsHitTestVisible="False" />
 
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6" IsVisible="{Binding !HasImages}" Margin="24">
                             <c:Icon Kind="images" Width="28" Height="28" Foreground="{DynamicResource TextTertiary}" HorizontalAlignment="Center" />
