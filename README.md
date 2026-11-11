@@ -16,7 +16,7 @@
 
 | OS | ファイル |
 |---|---|
-| Windows | `TachieKara-win-Setup.exe`（インストール版）／ `TachieKara-win-Portable.zip`（展開して使う版） |
+| Windows | `TachieKara-win-Setup.exe`（インストール版）／ `TachieKara-win-Portable.zip`（ポータブル版） |
 | macOS（Apple Silicon: M1 以降） | `TachieKara-osx-arm64-Portable.zip` |
 | macOS（Intel） | `TachieKara-osx-x64-Portable.zip` |
 
