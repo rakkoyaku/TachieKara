@@ -13,6 +13,7 @@
 ## ダウンロードとインストール
 
 [Releases](https://github.com/rakkoyaku/TachieKara/releases/latest) から OS に合ったものを取ってください。
+[BOOTH](https://karikariume.booth.pm/items/9135762) からも無料でダウンロードできます（中身は同じです）。
 
 | OS | ファイル |
 |---|---|
